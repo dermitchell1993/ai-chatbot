@@ -4,6 +4,7 @@ import { genSaltSync, hashSync } from 'bcrypt-ts';
 import { and, asc, desc, eq, gt, gte, inArray, lt, SQL } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
+import { cache } from '@/lib/cache';
 
 import {
   user,
@@ -58,12 +59,17 @@ export async function saveChat({
   title: string;
 }) {
   try {
-    return await db.insert(chat).values({
+    const result = await db.insert(chat).values({
       id,
       createdAt: new Date(),
       userId,
       title,
     });
+
+    // Invalidate user chats cache
+    await cache.invalidateUserChats(userId);
+
+    return result;
   } catch (error) {
     console.error('Failed to save chat in database');
     throw error;
@@ -72,10 +78,22 @@ export async function saveChat({
 
 export async function deleteChatById({ id }: { id: string }) {
   try {
+    // Get userId before deletion for cache invalidation
+    const [chatToDelete] = await db.select({ userId: chat.userId }).from(chat).where(eq(chat.id, id));
+    const userId = chatToDelete?.userId;
+
     await db.delete(vote).where(eq(vote.chatId, id));
     await db.delete(message).where(eq(message.chatId, id));
 
-    return await db.delete(chat).where(eq(chat.id, id));
+    const result = await db.delete(chat).where(eq(chat.id, id));
+
+    // Invalidate caches
+    if (userId) {
+      await cache.invalidateUserChats(userId);
+    }
+    await cache.invalidateChatMessages(id);
+
+    return result;
   } catch (error) {
     console.error('Failed to delete chat by id from database');
     throw error;
@@ -94,6 +112,14 @@ export async function getChatsByUserId({
   endingBefore: string | null;
 }) {
   try {
+    const cursor = startingAfter || endingBefore || 'none';
+
+    // Try cache first
+    const cached = await cache.getChatsByUser(id, limit, cursor);
+    if (cached) {
+      return cached;
+    }
+
     const extendedLimit = limit + 1;
 
     const query = (whereCondition?: SQL<any>) =>
@@ -139,11 +165,15 @@ export async function getChatsByUserId({
     }
 
     const hasMore = filteredChats.length > limit;
-
-    return {
+    const result = {
       chats: hasMore ? filteredChats.slice(0, limit) : filteredChats,
       hasMore,
     };
+
+    // Cache the result
+    await cache.setChatsByUser(id, limit, result, cursor);
+
+    return result;
   } catch (error) {
     console.error('Failed to get chats by user from database');
     throw error;
@@ -166,7 +196,15 @@ export async function saveMessages({
   messages: Array<DBMessage>;
 }) {
   try {
-    return await db.insert(message).values(messages);
+    const result = await db.insert(message).values(messages);
+
+    // Invalidate cache for affected chats
+    const chatIds = [...new Set(messages.map(m => m.chatId))];
+    for (const chatId of chatIds) {
+      await cache.invalidateChatMessages(chatId);
+    }
+
+    return result;
   } catch (error) {
     console.error('Failed to save messages in database', error);
     throw error;
@@ -175,11 +213,23 @@ export async function saveMessages({
 
 export async function getMessagesByChatId({ id }: { id: string }) {
   try {
-    return await db
+    // Try cache first
+    const cached = await cache.getMessagesByChat(id);
+    if (cached) {
+      return cached;
+    }
+
+    // Fetch from database
+    const messages = await db
       .select()
       .from(message)
       .where(eq(message.chatId, id))
       .orderBy(asc(message.createdAt));
+
+    // Cache the result
+    await cache.setMessagesByChat(id, messages);
+
+    return messages;
   } catch (error) {
     console.error('Failed to get messages by chat id from database', error);
     throw error;
