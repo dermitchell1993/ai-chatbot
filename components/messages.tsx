@@ -30,6 +30,9 @@ function PureMessages({
   const [messagesContainerRef, messagesEndRef] =
     useScrollToBottom<HTMLDivElement>();
 
+  // Limit messages to last 50 to reduce memory usage
+  const displayedMessages = messages.slice(-50);
+
   return (
     <div
       ref={messagesContainerRef}
@@ -37,7 +40,7 @@ function PureMessages({
     >
       {messages.length === 0 && <Greeting />}
 
-      {messages.map((message, index) => (
+      {displayedMessages.map((message, index) => (
         <PreviewMessage
           key={message.id}
           chatId={chatId}
