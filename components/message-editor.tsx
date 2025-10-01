@@ -1,16 +1,28 @@
 'use client';
 
-import { ChatRequestOptions, Message } from 'ai';
+import type { Message } from 'ai';
+import type { UIMessage } from 'ai';
 import { Button } from './ui/button';
-import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react';
+import {
+  type Dispatch,
+  type SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { Textarea } from './ui/textarea';
 import { deleteTrailingMessages } from '@/app/(chat)/actions';
-import { UseChatHelpers } from '@ai-sdk/react';
+import type { UseChatHelpers } from '@ai-sdk/react';
 
 export type MessageEditorProps = {
   message: Message;
   setMode: Dispatch<SetStateAction<'view' | 'edit'>>;
-  setMessages: UseChatHelpers['setMessages'];
+  setMessages: (
+    messages:
+      | Message[]
+      | UIMessage[]
+      | ((messages: Message[] | UIMessage[]) => Message[] | UIMessage[]),
+  ) => void;
   reload: UseChatHelpers['reload'];
 };
 
@@ -75,18 +87,21 @@ export function MessageEditor({
               id: message.id,
             });
 
-            // @ts-expect-error todo: support UIMessage in setMessages
+            // Update message content with proper UIMessage support
             setMessages((messages) => {
               const index = messages.findIndex((m) => m.id === message.id);
 
               if (index !== -1) {
-                const updatedMessage = {
+                const updatedMessage: UIMessage = {
                   ...message,
                   content: draftContent,
                   parts: [{ type: 'text', text: draftContent }],
                 };
 
-                return [...messages.slice(0, index), updatedMessage];
+                return [...messages.slice(0, index), updatedMessage] as (
+                  | Message
+                  | UIMessage
+                )[];
               }
 
               return messages;

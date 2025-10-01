@@ -1,7 +1,9 @@
 import Redis from 'ioredis';
 
 // Valkey (Redis-compatible) cache client
-const redis = new Redis(process.env.VALKEY_URL || process.env.REDIS_URL || 'redis://localhost:6379');
+const redis = new Redis(
+  process.env.VALKEY_URL || process.env.REDIS_URL || 'redis://localhost:6379',
+);
 
 // Cache TTL in seconds
 const CACHE_TTL = {
@@ -32,7 +34,11 @@ export async function getCached<T>(key: string): Promise<T | null> {
   }
 }
 
-export async function setCached<T>(key: string, data: T, ttl: number): Promise<void> {
+export async function setCached<T>(
+  key: string,
+  data: T,
+  ttl: number,
+): Promise<void> {
   try {
     await redis.setex(key, ttl, JSON.stringify(data));
   } catch (error) {
@@ -66,7 +72,11 @@ export const cache = {
     getCached(CACHE_KEYS.CHATS_BY_USER(userId, limit, cursor)),
 
   setChatsByUser: (userId: string, limit: number, data: any, cursor?: string) =>
-    setCached(CACHE_KEYS.CHATS_BY_USER(userId, limit, cursor), data, CACHE_TTL.CHATS),
+    setCached(
+      CACHE_KEYS.CHATS_BY_USER(userId, limit, cursor),
+      data,
+      CACHE_TTL.CHATS,
+    ),
 
   invalidateUserChats: (userId: string) =>
     invalidatePattern(`chats:user:${userId}:*`),
@@ -82,8 +92,7 @@ export const cache = {
     invalidateCache(CACHE_KEYS.MESSAGES_BY_CHAT(chatId)),
 
   // User caching
-  getUserByEmail: (email: string) =>
-    getCached(CACHE_KEYS.USER_BY_EMAIL(email)),
+  getUserByEmail: (email: string) => getCached(CACHE_KEYS.USER_BY_EMAIL(email)),
 
   setUserByEmail: (email: string, data: any) =>
     setCached(CACHE_KEYS.USER_BY_EMAIL(email), data, CACHE_TTL.USER),
@@ -92,14 +101,12 @@ export const cache = {
     invalidateCache(CACHE_KEYS.USER_BY_EMAIL(email)),
 
   // Document caching
-  getDocumentsById: (id: string) =>
-    getCached(CACHE_KEYS.DOCUMENTS_BY_ID(id)),
+  getDocumentsById: (id: string) => getCached(CACHE_KEYS.DOCUMENTS_BY_ID(id)),
 
   setDocumentsById: (id: string, data: any) =>
     setCached(CACHE_KEYS.DOCUMENTS_BY_ID(id), data, CACHE_TTL.DOCUMENTS),
 
-  getDocumentById: (id: string) =>
-    getCached(CACHE_KEYS.DOCUMENT_BY_ID(id)),
+  getDocumentById: (id: string) => getCached(CACHE_KEYS.DOCUMENT_BY_ID(id)),
 
   setDocumentById: (id: string, data: any) =>
     setCached(CACHE_KEYS.DOCUMENT_BY_ID(id), data, CACHE_TTL.DOCUMENTS),
@@ -111,4 +118,3 @@ export const cache = {
 };
 
 export { redis, CACHE_TTL, CACHE_KEYS };
-

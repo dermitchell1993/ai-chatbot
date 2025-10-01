@@ -1,7 +1,17 @@
 import 'server-only';
 
 import { genSaltSync, hashSync } from 'bcrypt-ts';
-import { and, asc, desc, eq, gt, gte, inArray, lt, SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  lt,
+  type SQL,
+} from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { cache } from '@/lib/cache';
@@ -16,9 +26,9 @@ import {
   message,
   vote,
   type DBMessage,
-  Chat,
+  type Chat,
 } from './schema';
-import { ArtifactKind } from '@/components/artifact';
+import type { ArtifactKind } from '@/components/artifact';
 
 // Optionally, if not using email/pass login, you can
 // use the Drizzle adapter for Auth.js / NextAuth
@@ -79,7 +89,10 @@ export async function saveChat({
 export async function deleteChatById({ id }: { id: string }) {
   try {
     // Get userId before deletion for cache invalidation
-    const [chatToDelete] = await db.select({ userId: chat.userId }).from(chat).where(eq(chat.id, id));
+    const [chatToDelete] = await db
+      .select({ userId: chat.userId })
+      .from(chat)
+      .where(eq(chat.id, id));
     const userId = chatToDelete?.userId;
 
     await db.delete(vote).where(eq(vote.chatId, id));
@@ -199,7 +212,7 @@ export async function saveMessages({
     const result = await db.insert(message).values(messages);
 
     // Invalidate cache for affected chats
-    const chatIds = [...new Set(messages.map(m => m.chatId))];
+    const chatIds = [...new Set(messages.map((m) => m.chatId))];
     for (const chatId of chatIds) {
       await cache.invalidateChatMessages(chatId);
     }

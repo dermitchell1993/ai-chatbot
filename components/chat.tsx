@@ -15,8 +15,14 @@ import { unstable_serialize } from 'swr/infinite';
 import { getChatHistoryPaginationKey } from './sidebar-history';
 
 // Lazy load heavy components to reduce initial memory footprint
-const Artifact = lazy(() => import('./artifact').then(mod => ({ default: mod.Artifact })));
-const MultimodalInput = lazy(() => import('./multimodal-input').then(mod => ({ default: mod.MultimodalInput })));
+const Artifact = lazy(() =>
+  import('./artifact').then((mod) => ({ default: mod.Artifact })),
+);
+const MultimodalInput = lazy(() =>
+  import('./multimodal-input').then((mod) => ({
+    default: mod.MultimodalInput,
+  })),
+);
 
 export function Chat({
   id,
